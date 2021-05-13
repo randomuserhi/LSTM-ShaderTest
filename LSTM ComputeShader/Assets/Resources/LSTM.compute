@@ -1,0 +1,357 @@
+﻿#pragma kernel FeedForward
+
+//Population Data
+int StructureLength;
+StructuredBuffer<int> Structure;
+int Population;
+
+//From here onwards all structured buffers represent matrices for all networks, the structure is as follows:
+//    Network
+//    [
+//        Matrices
+//        [
+//            Column values
+//            [
+//                Row values
+//                [
+//                ]
+//            ]
+//        ]
+//    ]
+//
+//    This is stored in row major such that:
+//     |  [Mat1, Mat1, Mat1] ---> +sizeof(Mat1) to get to next Network's Mat1
+//     |  [Mat2, Mat2, Mat2]
+//     V  [Mat3, Mat3, Mat3]
+//    +sizeof(Mat1)*Population to get to next layer, Mat2
+
+struct MatrixInfo
+{
+	int Rows;
+	int Cols;
+    int Size;
+	int Offset; //Offset in memory for the buffers
+};
+ 
+//These 3 are technically all Nodes, just split into Input and Output for ease in memory (Node values dont have to be copied)
+RWStructuredBuffer<float> Inputs;
+int NodeCount; //Incase no hidden nodes exist
+RWStructuredBuffer<float> Nodes;
+RWStructuredBuffer<float> Outputs;
+
+RWStructuredBuffer<float> CellStates;
+
+RWStructuredBuffer<float> WeightsBiases;
+/*RWStructuredBuffer<float> InputWeights;
+RWStructuredBuffer<float> InputStateWeights;
+RWStructuredBuffer<float> InputBias;
+
+RWStructuredBuffer<float> InputModulationWeights;
+RWStructuredBuffer<float> InputModulationStateWeights;
+RWStructuredBuffer<float> InputModulationBias;
+
+RWStructuredBuffer<float> ForgetWeights;
+RWStructuredBuffer<float> ForgetStateWeights;
+RWStructuredBuffer<float> ForgetBias;
+
+RWStructuredBuffer<float> OutputWeights;
+RWStructuredBuffer<float> OutputStateWeights;
+RWStructuredBuffer<float> OutputBias;*/
+
+RWStructuredBuffer<MatrixInfo> NodeCellInfo; //Shares matrix info for CellState, Bias and Inputs-Nodes-Outputs (MatrixInfo for CellState and Bias is just offset by 1)
+RWStructuredBuffer<MatrixInfo> WeightBiasInfo; //Shares matrix info for Weight-StateWeights, stored 1 after the other (2D array)
+
+//As per layer a gate is used only once and then disgarded the format is
+//    Network
+//    [
+//        Column values
+//        [
+//            Row values
+//            [
+//            ]
+//        ]
+//    ]
+//
+//However the size of the matrix (column * row) needs to be able to store the largest gate size in the network
+//    This is stored in row major such that:
+//     |  [Mat1, Mat1, Mat1] ---> +sizeof(Mat1) to get to next Network's Mat1
+//     |  [Mat2, Mat2, Mat2]
+//     V  [Mat3, Mat3, Mat3]
+//    +sizeof(Mat1)*Population to get to next layer, Mat2
+
+int MaxGateSize;
+RWStructuredBuffer<float> Gates;
+/*RWStructuredBuffer<float> InputGate;
+RWStructuredBuffer<float> InputModulationGate;
+RWStructuredBuffer<float> ForgetGate;
+RWStructuredBuffer<float> OutputGate;*/
+
+void MatrixMultiplication(RWStructuredBuffer<float> A, RWStructuredBuffer<float> B, RWStructuredBuffer<float> C, MatrixInfo AInfo, MatrixInfo BInfo, MatrixInfo CInfo)
+{
+	for (int i = 0, COffset = 0; i < CInfo.Cols; i++)
+	{
+		for (int j = 0; j < CInfo.Rows; j++, COffset++)
+		{
+			C[COffset] = 0;
+			for (int k = 0, AOffset = AInfo.Offset + j, BOffset = BInfo.Offset + i * BInfo.Rows; k < AInfo.Cols; k++, AOffset += AInfo.Rows, BOffset++)
+			{
+				C[COffset] += A[AOffset] * B[BOffset];
+			}
+		}
+	}
+}
+
+void MatrixMultiplicationNoReset(RWStructuredBuffer<float> A, RWStructuredBuffer<float> B, RWStructuredBuffer<float> C, MatrixInfo AInfo, MatrixInfo BInfo, MatrixInfo CInfo)
+{
+	for (int i = 0, COffset = 0; i < CInfo.Cols; i++)
+	{
+		for (int j = 0; j < CInfo.Rows; j++, COffset++)
+		{
+			for (int k = 0, AOffset = AInfo.Offset + j, BOffset = BInfo.Offset + i * BInfo.Rows; k < AInfo.Cols; k++, AOffset += AInfo.Rows, BOffset++)
+			{
+				C[COffset] += A[AOffset] * B[BOffset];
+			}
+		}
+	}
+}
+
+void MatrixCWiseMultiplication(RWStructuredBuffer<float> A, RWStructuredBuffer<float> B, RWStructuredBuffer<float> C, MatrixInfo AInfo, MatrixInfo BInfo, MatrixInfo CInfo)
+{
+	for (int i = 0, AOffset = AInfo.Offset, BOffset = BInfo.Offset, COffset = CInfo.Offset; i < AInfo.Size; i++, AOffset++, BOffset++, COffset++)
+	{
+		C[COffset] = A[AOffset] * B[BOffset];
+	}
+}
+
+void MatrixAddition(RWStructuredBuffer<float> A, RWStructuredBuffer<float> B, RWStructuredBuffer<float> C, MatrixInfo AInfo, MatrixInfo BInfo, MatrixInfo CInfo)
+{
+	for (int i = 0, AOffset = AInfo.Offset, BOffset = BInfo.Offset, COffset = CInfo.Offset; i < AInfo.Size; i++, AOffset++, BOffset++, COffset++)
+	{
+		C[COffset] = A[AOffset] + B[BOffset];
+	}
+}
+
+void MatrixAdditionCopy(RWStructuredBuffer<float> A, RWStructuredBuffer<float> B, RWStructuredBuffer<float> C, MatrixInfo AInfo, MatrixInfo BInfo, MatrixInfo CInfo)
+{
+	for (int i = 0, AOffset = AInfo.Offset, BOffset = BInfo.Offset, COffset = CInfo.Offset; i < AInfo.Size; i++, AOffset++, BOffset++, COffset++)
+	{
+		float Result = A[AOffset] + B[BOffset];
+		C[COffset] = Result;
+		B[BOffset] = Result;
+	}
+}
+
+void MatrixTanh(RWStructuredBuffer<float> A, MatrixInfo Info)
+{
+	for (int i = 0, Offset = Info.Offset; i < Info.Size; i++, Offset++)
+	{
+		A[Offset] = tanh(A[Offset]);
+	}
+}
+
+void MatrixSigmoid(RWStructuredBuffer<float> A, MatrixInfo Info)
+{
+	for (int i = 0, Offset = Info.Offset; i < Info.Size; i++, Offset++)
+	{
+		float Expon = exp(A[Offset]);
+		A[Offset] = Expon / (Expon + 1);
+	}
+}
+
+/*[numthreads(1, 1, 1)]
+void FeedForward(uint3 id : SV_DispatchThreadID)
+{
+	//id.x => which network
+	int PopulationOffset = Population - id.x;
+
+	//i = 0 case for Inputs
+
+	MatrixInfo NodeInf = NodeCellInfo[0];
+	MatrixInfo CellStateInf = NodeCellInfo[1]; //Equivilent to NextNodeInf
+	MatrixInfo WeightInf = WeightBiasInfo[0];
+	MatrixInfo WeightStateInf = WeightBiasInfo[1];
+	MatrixInfo BiasInf = NodeCellInfo[1];
+	MatrixInfo GateInf = NodeCellInfo[1];
+
+	int GateOffset = id.x * MaxGateSize; 
+
+	GateInf.Offset = GateOffset;
+	int NodeOffset = id.x * NodeInf.Size; NodeInf.Offset = NodeOffset;
+	int CellStateOffset = id.x * CellStateInf.Size; CellStateInf.Offset = CellStateOffset;
+	int WeightOffset = id.x * WeightInf.Size; WeightInf.Offset = WeightOffset;
+	int WeightStateOffset = id.x * WeightStateInf.Size; WeightStateInf.Offset = WeightStateOffset;
+	int BiasOffset = id.x * BiasInf.Size; BiasInf.Offset = BiasOffset;
+	
+	//Actual calcuation
+	if (NodeCount == 0)
+	{
+		MatrixInfo OutputInf = NodeCellInfo[1];
+		int OutputOffset = id.x * CellStateInf.Size; OutputInf.Offset = OutputOffset;
+
+		MatrixMultiplication(Inputs, InputWeights, InputGate, NodeInf, WeightInf, GateInf);
+		MatrixMultiplicationNoReset(Outputs, InputStateWeights, InputGate, OutputInf, WeightStateInf, GateInf);
+		MatrixAddition(InputGate, InputBias, InputGate, GateInf, BiasInf, GateInf);
+
+		MatrixMultiplication(Inputs, InputModulationWeights, InputModulationGate, NodeInf, WeightInf, GateInf);
+		MatrixMultiplicationNoReset(Outputs, InputModulationStateWeights, InputModulationGate, OutputInf, WeightStateInf, GateInf);
+		MatrixAddition(InputModulationGate, InputModulationBias, InputModulationGate, GateInf, BiasInf, GateInf);
+
+		MatrixMultiplication(Inputs, ForgetWeights, ForgetGate, NodeInf, WeightInf, GateInf);
+		MatrixMultiplicationNoReset(Outputs, ForgetStateWeights, ForgetGate, OutputInf, WeightStateInf, GateInf);
+		MatrixAddition(ForgetGate, ForgetBias, ForgetGate, GateInf, BiasInf, GateInf);
+
+		MatrixMultiplication(Inputs, OutputWeights, OutputGate, NodeInf, WeightInf, GateInf);
+		MatrixMultiplicationNoReset(Outputs, OutputStateWeights, OutputGate, OutputInf, WeightStateInf, GateInf);
+		MatrixAddition(OutputGate, OutputBias, OutputGate, GateInf, BiasInf, GateInf);
+
+		MatrixSigmoid(InputGate, GateInf);
+		MatrixSigmoid(InputModulationGate, GateInf);
+		MatrixTanh(ForgetGate, GateInf);
+		MatrixSigmoid(OutputGate, GateInf);
+
+		MatrixCWiseMultiplication(CellStates, InputGate, CellStates, CellStateInf, GateInf, CellStateInf);
+		MatrixCWiseMultiplication(ForgetGate, InputModulationGate, ForgetGate, GateInf, GateInf, GateInf);
+		MatrixAdditionCopy(CellStates, ForgetGate, CellStates, CellStateInf, GateInf, CellStateInf);
+
+		MatrixTanh(ForgetGate, GateInf);
+
+		MatrixCWiseMultiplication(OutputGate, ForgetGate, Outputs, GateInf, GateInf, OutputInf);
+		return;
+	}
+
+	MatrixMultiplication(Inputs, InputWeights, InputGate, NodeInf, WeightInf, GateInf);
+	MatrixMultiplicationNoReset(Nodes, InputStateWeights, InputGate, CellStateInf, WeightStateInf, GateInf);
+	MatrixAddition(InputGate, InputBias, InputGate, GateInf, BiasInf, GateInf);
+	
+	MatrixMultiplication(Inputs, InputModulationWeights, InputModulationGate, NodeInf, WeightInf, GateInf);
+	MatrixMultiplicationNoReset(Nodes, InputModulationStateWeights, InputModulationGate, CellStateInf, WeightStateInf, GateInf);
+	MatrixAddition(InputModulationGate, InputModulationBias, InputModulationGate, GateInf, BiasInf, GateInf);
+
+	MatrixMultiplication(Inputs, ForgetWeights, ForgetGate, NodeInf, WeightInf, GateInf);
+	MatrixMultiplicationNoReset(Nodes, ForgetStateWeights, ForgetGate, CellStateInf, WeightStateInf, GateInf);
+	MatrixAddition(ForgetGate, ForgetBias, ForgetGate, GateInf, BiasInf, GateInf);
+
+	MatrixMultiplication(Inputs, OutputWeights, OutputGate, NodeInf, WeightInf, GateInf);
+	MatrixMultiplicationNoReset(Nodes, OutputStateWeights, OutputGate, CellStateInf, WeightStateInf, GateInf);
+	MatrixAddition(OutputGate, OutputBias, OutputGate, GateInf, BiasInf, GateInf);
+
+	MatrixSigmoid(InputGate, GateInf);
+	MatrixSigmoid(InputModulationGate, GateInf);
+	MatrixTanh(ForgetGate, GateInf);
+	MatrixSigmoid(OutputGate, GateInf);
+
+	MatrixCWiseMultiplication(CellStates, InputGate, CellStates, CellStateInf, GateInf, CellStateInf);
+	MatrixCWiseMultiplication(ForgetGate, InputModulationGate, ForgetGate, GateInf, GateInf, GateInf);
+	MatrixAdditionCopy(CellStates, ForgetGate, CellStates, CellStateInf, GateInf, CellStateInf);
+
+	MatrixTanh(ForgetGate, GateInf);
+
+	MatrixCWiseMultiplication(OutputGate, ForgetGate, Nodes, GateInf, GateInf, CellStateInf);
+
+	NodeOffset += NodeInf.Size * PopulationOffset;
+	CellStateOffset += CellStateInf.Size * PopulationOffset;
+	WeightOffset += WeightInf.Size * PopulationOffset;
+	WeightStateOffset += WeightStateInf.Size * PopulationOffset;
+	BiasOffset += BiasInf.Size * PopulationOffset;
+
+	for (int i = 1, j = 2; i < StructureLength - 2; i++, j++)
+	{
+		NodeInf = NodeCellInfo[i];
+		CellStateInf = NodeCellInfo[j];
+		WeightInf = WeightBiasInfo[i * 2];
+		WeightStateInf = WeightBiasInfo[i * 2 + 1];
+		BiasInf = NodeCellInfo[j];
+		GateInf = NodeCellInfo[j];
+
+		GateInf.Offset = GateOffset; //This part for gate offset can be stored on c# side and parsed rather than calculated here, shouldnt make any difference tho
+		NodeOffset += id.x * NodeInf.Size; NodeInf.Offset = NodeOffset;
+		CellStateOffset += id.x * CellStateInf.Size; CellStateInf.Offset = CellStateOffset;
+		WeightOffset += id.x * WeightInf.Size; WeightInf.Offset = WeightOffset;
+		WeightStateOffset += id.x * WeightStateInf.Size; WeightStateInf.Offset = WeightStateOffset;
+		BiasOffset += id.x * BiasInf.Size; BiasInf.Offset = BiasOffset;
+
+		//Actual calcuation
+		MatrixMultiplication(Nodes, InputWeights, InputGate, NodeInf, WeightInf, GateInf);
+		MatrixMultiplicationNoReset(Nodes, InputStateWeights, InputGate, CellStateInf, WeightStateInf, GateInf);
+		MatrixAddition(InputGate, InputBias, InputGate, GateInf, BiasInf, GateInf);
+
+		MatrixMultiplication(Nodes, InputModulationWeights, InputModulationGate, NodeInf, WeightInf, GateInf);
+		MatrixMultiplicationNoReset(Nodes, InputModulationStateWeights, InputModulationGate, CellStateInf, WeightStateInf, GateInf);
+		MatrixAddition(InputModulationGate, InputModulationBias, InputModulationGate, GateInf, BiasInf, GateInf);
+
+		MatrixMultiplication(Nodes, ForgetWeights, ForgetGate, NodeInf, WeightInf, GateInf);
+		MatrixMultiplicationNoReset(Nodes, ForgetStateWeights, ForgetGate, CellStateInf, WeightStateInf, GateInf);
+		MatrixAddition(ForgetGate, ForgetBias, ForgetGate, GateInf, BiasInf, GateInf);
+
+		MatrixMultiplication(Nodes, OutputWeights, OutputGate, NodeInf, WeightInf, GateInf);
+		MatrixMultiplicationNoReset(Nodes, OutputStateWeights, OutputGate, CellStateInf, WeightStateInf, GateInf);
+		MatrixAddition(OutputGate, OutputBias, OutputGate, GateInf, BiasInf, GateInf);
+
+		MatrixSigmoid(InputGate, GateInf);
+		MatrixSigmoid(InputModulationGate, GateInf);
+		MatrixTanh(ForgetGate, GateInf);
+		MatrixSigmoid(OutputGate, GateInf);
+
+		MatrixCWiseMultiplication(CellStates, InputGate, CellStates, CellStateInf, GateInf, CellStateInf);
+		MatrixCWiseMultiplication(ForgetGate, InputModulationGate, ForgetGate, GateInf, GateInf, GateInf);
+		MatrixAdditionCopy(CellStates, ForgetGate, CellStates, CellStateInf, GateInf, CellStateInf);
+
+		MatrixTanh(ForgetGate, GateInf);
+
+		MatrixCWiseMultiplication(OutputGate, ForgetGate, Nodes, GateInf, GateInf, CellStateInf);
+
+		NodeOffset += NodeInf.Size * PopulationOffset;
+		CellStateOffset += CellStateInf.Size * PopulationOffset;
+		WeightOffset += WeightInf.Size * PopulationOffset;
+		WeightStateOffset += WeightStateInf.Size * PopulationOffset;
+		BiasOffset += BiasInf.Size * PopulationOffset;
+	}
+
+	//i = length - 1 case for Outputs
+	i = StructureLength - 2; j = StructureLength - 1;
+	NodeInf = NodeCellInfo[i];
+	MatrixInfo OutputInf = NodeCellInfo[j];
+	CellStateInf = NodeCellInfo[j];
+	WeightInf = WeightBiasInfo[i * 2];
+	WeightStateInf = WeightBiasInfo[i * 2 + 1];
+	BiasInf = NodeCellInfo[j];
+	GateInf = NodeCellInfo[j];
+
+	GateInf.Offset = GateOffset; //This part for gate offset can be stored on c# side and parsed rather than calculated here, shouldnt make any difference tho
+	NodeOffset += id.x * NodeInf.Size; NodeInf.Offset = NodeOffset;
+	int OutputOffset = id.x * CellStateInf.Size; OutputInf.Offset = OutputOffset;
+	CellStateOffset += id.x * CellStateInf.Size; CellStateInf.Offset = CellStateOffset;
+	WeightOffset += id.x * WeightInf.Size; WeightInf.Offset = WeightOffset;
+	WeightStateOffset += id.x * WeightStateInf.Size; WeightStateInf.Offset = WeightStateOffset;
+	BiasOffset += id.x * BiasInf.Size; BiasInf.Offset = BiasOffset;
+
+	//Actual calcuation
+	MatrixMultiplication(Nodes, InputWeights, InputGate, NodeInf, WeightInf, GateInf);
+	MatrixMultiplicationNoReset(Outputs, InputStateWeights, InputGate, OutputInf, WeightStateInf, GateInf);
+	MatrixAddition(InputGate, InputBias, InputGate, GateInf, BiasInf, GateInf);
+
+	MatrixMultiplication(Nodes, InputModulationWeights, InputModulationGate, NodeInf, WeightInf, GateInf);
+	MatrixMultiplicationNoReset(Outputs, InputModulationStateWeights, InputModulationGate, OutputInf, WeightStateInf, GateInf);
+	MatrixAddition(InputModulationGate, InputModulationBias, InputModulationGate, GateInf, BiasInf, GateInf);
+
+	MatrixMultiplication(Nodes, ForgetWeights, ForgetGate, NodeInf, WeightInf, GateInf);
+	MatrixMultiplicationNoReset(Outputs, ForgetStateWeights, ForgetGate, OutputInf, WeightStateInf, GateInf);
+	MatrixAddition(ForgetGate, ForgetBias, ForgetGate, GateInf, BiasInf, GateInf);
+
+	MatrixMultiplication(Nodes, OutputWeights, OutputGate, NodeInf, WeightInf, GateInf);
+	MatrixMultiplicationNoReset(Outputs, OutputStateWeights, OutputGate, OutputInf, WeightStateInf, GateInf);
+	MatrixAddition(OutputGate, OutputBias, OutputGate, GateInf, BiasInf, GateInf);
+
+	MatrixSigmoid(InputGate, GateInf);
+	MatrixSigmoid(InputModulationGate, GateInf);
+	MatrixTanh(ForgetGate, GateInf);
+	MatrixSigmoid(OutputGate, GateInf);
+
+	MatrixCWiseMultiplication(CellStates, InputGate, CellStates, CellStateInf, GateInf, CellStateInf);
+	MatrixCWiseMultiplication(ForgetGate, InputModulationGate, ForgetGate, GateInf, GateInf, GateInf);
+	MatrixAdditionCopy(CellStates, ForgetGate, CellStates, CellStateInf, GateInf, CellStateInf);
+
+	MatrixTanh(ForgetGate, GateInf);
+
+	MatrixCWiseMultiplication(OutputGate, ForgetGate, Outputs, GateInf, GateInf, OutputInf);
+}*/
