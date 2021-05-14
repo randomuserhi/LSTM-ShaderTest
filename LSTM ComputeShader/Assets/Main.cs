@@ -9,7 +9,7 @@ public class Main : MonoBehaviour
 {
     LSTMManager.LSTMGroup LSTMGroup;
     ComputeShader LSTM;
-    int Population = 1;
+    int Population = 500;
     float[] Inputs;
 
     public void Start()
@@ -40,8 +40,8 @@ public class Main : MonoBehaviour
     public void FixedUpdate()
     {
         float[] Result = LSTMManager.FeedForward(Inputs, LSTMGroup, LSTM);
-        Debug.Log("Update " + Count);
-        Debug.Log(String.Join(",", Result));
+        //Debug.Log("Update " + Count);
+        //Debug.Log(String.Join(",", Result));
         //LSTMGroup.DebugData();
         Count++;
     }
