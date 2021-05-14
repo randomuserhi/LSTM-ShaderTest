@@ -21,7 +21,6 @@ public class LSTMManager
     {
         public int Population;
         public int[] Structure;
-        public ComputeBuffer _Structure;
 
         public float[] Inputs;
         public float[] Nodes;
@@ -33,33 +32,8 @@ public class LSTMManager
         public float[] CellStates;
         public ComputeBuffer _CellStates;
 
-        public float[] InputWeights;
-        public float[] InputStateWeights;
-        public float[] InputBias;
-        public ComputeBuffer _InputWeights;
-        public ComputeBuffer _InputStateWeights;
-        public ComputeBuffer _InputBias;
-
-        public float[] InputModulationWeights;
-        public float[] InputModulationStateWeights;
-        public float[] InputModulationBias;
-        public ComputeBuffer _InputModulationWeights;
-        public ComputeBuffer _InputModulationStateWeights;
-        public ComputeBuffer _InputModulationBias;
-
-        public float[] ForgetWeights;
-        public float[] ForgetStateWeights;
-        public float[] ForgetBias;
-        public ComputeBuffer _ForgetWeights;
-        public ComputeBuffer _ForgetStateWeights;
-        public ComputeBuffer _ForgetBias;
-
-        public float[] OutputWeights;
-        public float[] OutputStateWeights;
-        public float[] OutputBias;
-        public ComputeBuffer _OutputWeights;
-        public ComputeBuffer _OutputStateWeights;
-        public ComputeBuffer _OutputBias;
+        public float[] WeightsBiases;
+        public ComputeBuffer _WeightsBiases;
 
         public MatrixInfo[] NodeCellInfo;
         public MatrixInfo[] WeightBiasInfo;
@@ -67,14 +41,24 @@ public class LSTMManager
         public ComputeBuffer _NodeCellInfo;
         public ComputeBuffer _WeightBiasInfo;
 
-        public float[] InputGate;
-        public float[] InputModulationGate;
-        public float[] ForgetGate;
-        public float[] OutputGate;
-        public ComputeBuffer _InputGate;
-        public ComputeBuffer _InputModulationGate;
-        public ComputeBuffer _ForgetGate;
-        public ComputeBuffer _OutputGate;
+        public float[] Gates;
+        public ComputeBuffer _Gates;
+
+        public void Initialize()
+        {
+            _Inputs.SetData(Inputs);
+            _Outputs.SetData(Outputs);
+            _Nodes.SetData(Nodes);
+            _CellStates.SetData(CellStates);
+            _WeightsBiases.SetData(WeightsBiases);
+            _NodeCellInfo.SetData(NodeCellInfo);
+            _WeightBiasInfo.SetData(WeightBiasInfo);
+            _Gates.SetData(Gates);
+        }
+        public void SetWeightBiasData()
+        {
+            _WeightsBiases.SetData(WeightsBiases);
+        }
     }
 
     public static LSTMGroup CreateLSTMGroup(int[] Structure, int Population)
@@ -130,50 +114,29 @@ public class LSTMManager
         WeightCount *= Population;
         StateWeightCount *= Population;
         int GateSize = MaxGateSize * Population;
+        int TotalWeightBiasCount = (WeightCount + StateWeightCount + NodeCount) * 4;
+        int TotalGateSize = GateSize * 4;
+
+        int InputSize = Structure[0] * Population;
+        int OutputSize = Structure[Structure.Length - 1] * Population;
 
         return new LSTMGroup()
         {
             Population = Population,
             Structure = Structure,
-            _Structure = new ComputeBuffer(Structure.Length, sizeof(int)),
 
-            Inputs = new float[Structure[0]],
+            Inputs = new float[InputSize],
             Nodes = new float[NodeCountNoInputOutput],
-            Outputs = new float[Structure[Structure.Length - 1]],
-            _Inputs = new ComputeBuffer(Structure[0], sizeof(float)),
+            Outputs = new float[OutputSize],
+            _Inputs = new ComputeBuffer(InputSize, sizeof(float)),
             _Nodes = NodeCountNoInputOutput == 0 ? new ComputeBuffer(1, sizeof(float)) : new ComputeBuffer(NodeCountNoInputOutput, sizeof(float)),
-            _Outputs = new ComputeBuffer(Structure[Structure.Length - 1], sizeof(float)),
+            _Outputs = new ComputeBuffer(OutputSize, sizeof(float)),
 
             CellStates = new float[NodeCount],
             _CellStates = new ComputeBuffer(NodeCount, sizeof(float)),
 
-            InputWeights = new float[WeightCount],
-            InputStateWeights = new float[StateWeightCount],
-            InputBias = new float[NodeCount],
-            _InputWeights = new ComputeBuffer(WeightCount, sizeof(float)),
-            _InputStateWeights = new ComputeBuffer(StateWeightCount, sizeof(float)),
-            _InputBias = new ComputeBuffer(NodeCount, sizeof(float)),
-
-            InputModulationWeights = new float[WeightCount],
-            InputModulationStateWeights = new float[StateWeightCount],
-            InputModulationBias = new float[NodeCount],
-            _InputModulationWeights = new ComputeBuffer(WeightCount, sizeof(float)),
-            _InputModulationStateWeights = new ComputeBuffer(StateWeightCount, sizeof(float)),
-            _InputModulationBias = new ComputeBuffer(NodeCount, sizeof(float)),
-
-            ForgetWeights = new float[WeightCount],
-            ForgetStateWeights = new float[StateWeightCount],
-            ForgetBias = new float[NodeCount],
-            _ForgetWeights = new ComputeBuffer(WeightCount, sizeof(float)),
-            _ForgetStateWeights = new ComputeBuffer(StateWeightCount, sizeof(float)),
-            _ForgetBias = new ComputeBuffer(NodeCount, sizeof(float)),
-
-            OutputWeights = new float[WeightCount],
-            OutputStateWeights = new float[StateWeightCount],
-            OutputBias = new float[NodeCount],
-            _OutputWeights = new ComputeBuffer(WeightCount, sizeof(float)),
-            _OutputStateWeights = new ComputeBuffer(StateWeightCount, sizeof(float)),
-            _OutputBias = new ComputeBuffer(NodeCount, sizeof(float)),
+            WeightsBiases = new float[TotalWeightBiasCount],
+            _WeightsBiases = new ComputeBuffer(TotalWeightBiasCount, sizeof(float)),
 
             NodeCellInfo = NodeCellInfo,
             WeightBiasInfo = WeightBiasInfo,
@@ -181,88 +144,57 @@ public class LSTMManager
             _NodeCellInfo = new ComputeBuffer(NodeCellInfo.Length, sizeof(int) * 4),
             _WeightBiasInfo = new ComputeBuffer(WeightBiasInfo.Length, sizeof(int) * 4),
 
-            InputGate = new float[GateSize],
-            InputModulationGate = new float[GateSize],
-            ForgetGate = new float[GateSize],
-            OutputGate = new float[GateSize],
-            _InputGate = new ComputeBuffer(GateSize, sizeof(float)),
-            _InputModulationGate = new ComputeBuffer(GateSize, sizeof(float)),
-            _ForgetGate = new ComputeBuffer(GateSize, sizeof(float)),
-            _OutputGate = new ComputeBuffer(GateSize, sizeof(float))
+            Gates = new float[TotalGateSize],
+            _Gates = new ComputeBuffer(TotalGateSize, sizeof(float))
         };
     }
 
     public static void AssignLSTMGroupToShader(LSTMGroup Group, ComputeShader Compute)
     {
         Compute.SetInt("StructureLength", Group.Structure.Length);
-        Compute.SetBuffer(0, "Structure", Group._Structure);
         Compute.SetInt("Population", Group.Population);
 
         Compute.SetBuffer(0, "Inputs", Group._Inputs);
-        Compute.SetInt("NodeCount", Group.Nodes.Length);
         Compute.SetBuffer(0, "Nodes", Group._Nodes);
         Compute.SetBuffer(0, "Outputs", Group._Outputs);
 
         Compute.SetBuffer(0, "CellStates", Group._CellStates);
 
-        Compute.SetBuffer(0, "InputWeights", Group._InputWeights);
-        Compute.SetBuffer(0, "InputStateWeights", Group._InputStateWeights);
-        Compute.SetBuffer(0, "InputBias", Group._InputBias);
-
-        Compute.SetBuffer(0, "InputModulationWeights", Group._InputModulationWeights);
-        Compute.SetBuffer(0, "InputModulationStateWeights", Group._InputModulationStateWeights);
-        Compute.SetBuffer(0, "InputModulationBias", Group._InputModulationBias);
-
-        Compute.SetBuffer(0, "ForgetWeights", Group._ForgetWeights);
-        Compute.SetBuffer(0, "ForgetStateWeights", Group._ForgetStateWeights);
-        Compute.SetBuffer(0, "ForgetBias", Group._ForgetBias);
-
-        Compute.SetBuffer(0, "OutputWeights", Group._OutputWeights);
-        Compute.SetBuffer(0, "OutputStateWeights", Group._OutputStateWeights);
-        Compute.SetBuffer(0, "OutputBias", Group._OutputBias);
+        Compute.SetBuffer(0, "WeightsBiases", Group._WeightsBiases);
 
         Compute.SetBuffer(0, "NodeCellInfo", Group._NodeCellInfo);
         Compute.SetBuffer(0, "WeightBiasInfo", Group._WeightBiasInfo);
         Compute.SetInt("MaxGateSize", Group.MaxGateSize);
+        Compute.SetInt("TotalGateStride", Group.MaxGateSize * 4);
 
-        Compute.SetBuffer(0, "InputGate", Group._InputGate);
-        Compute.SetBuffer(0, "InputModulationGate", Group._InputModulationGate);
-        Compute.SetBuffer(0, "ForgetGate", Group._ForgetGate);
-        Compute.SetBuffer(0, "OutputGate", Group._OutputGate);
+        Compute.SetBuffer(0, "Gates", Group._Gates);
+    }
+
+    public static float[] FeedForward(float[] Inputs, LSTMGroup Group, ComputeShader Compute)
+    {
+        for (int i = 0; i < Inputs.Length; i++)
+        {
+            Group.Inputs[i] = Inputs[i];
+        }
+        Group._Inputs.SetData(Group.Inputs);
+        Compute.Dispatch(0, Group.Population, 1, 1);
+        Group._Outputs.GetData(Group.Outputs);
+        return Group.Outputs;
     }
 
     public static void DisposeGroup(LSTMGroup Group)
     {
-        Group._Structure?.Dispose();
-        
         Group._Inputs?.Dispose();
         Group._Nodes?.Dispose();
         Group._Outputs?.Dispose();
 
         Group._CellStates?.Dispose();
 
-        Group._InputWeights?.Dispose();
-        Group._InputStateWeights?.Dispose();
-        Group._InputBias?.Dispose();
-
-        Group._InputModulationWeights?.Dispose();
-        Group._InputModulationStateWeights?.Dispose();
-        Group._InputModulationBias?.Dispose();
-
-        Group._ForgetWeights?.Dispose();
-        Group._ForgetStateWeights?.Dispose();
-        Group._ForgetBias?.Dispose();
-
-        Group._OutputWeights?.Dispose();
-        Group._OutputStateWeights?.Dispose();
-        Group._OutputBias?.Dispose();
+        Group._WeightsBiases?.Dispose();
 
         Group._NodeCellInfo?.Dispose();
         Group._WeightBiasInfo?.Dispose();
 
-        Group._InputGate?.Dispose();
-        Group._InputModulationGate?.Dispose();
-        Group._ForgetGate?.Dispose();
-        Group._OutputGate?.Dispose();
+        Group._Gates?.Dispose();
     }
 }
