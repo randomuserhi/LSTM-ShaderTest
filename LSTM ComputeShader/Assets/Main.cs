@@ -8,11 +8,15 @@ using UnityEngine;
 public class Main : MonoBehaviour
 {
     LSTMManager.LSTMGroup LSTMGroup;
+    ComputeShader LSTM;
+    float[] Inputs = new float[2 * 1];
 
     public void Start()
     {
-        ComputeShader LSTM = LSTMManager.GenerateComputeShader();
-        LSTMGroup = LSTMManager.CreateLSTMGroup(new int[] { 10, 10, 10, 10, 10 }, 2000);
+        Application.runInBackground = true;
+
+        LSTM = LSTMManager.GenerateComputeShader();
+        LSTMGroup = LSTMManager.CreateLSTMGroup(new int[] { 2, 2 }, 1);
         LSTMManager.AssignLSTMGroupToShader(LSTMGroup, LSTM);
         LSTMGroup.Initialize();
 
@@ -21,23 +25,21 @@ public class Main : MonoBehaviour
             LSTMGroup.WeightsBiases[i] = 1;
         }
         LSTMGroup.SetWeightBiasData();
-
-        float[] Inputs = new float[2 * 2000];
-        for (int i = 0; i < 2000; i++)
+        
+        for (int i = 0; i < Inputs.Length; i++)
         {
             Inputs[i] = 1;
         }
 
-        System.Diagnostics.Stopwatch S = new System.Diagnostics.Stopwatch();
-        S.Start();
+        Debug.Log("Initialize Complete");
+    }
 
-        for (int i = 0; i < 100; i++)
-        {
-            float[] Result = LSTMManager.FeedForward(Inputs, LSTMGroup, LSTM);
-        }
-
-        S.Stop();
-        Debug.Log((S.ElapsedMilliseconds / 100) + "ms");
+    int Count = 0;
+    public void FixedUpdate()
+    {
+        float[] Result = LSTMManager.FeedForward(Inputs, LSTMGroup, LSTM);
+        Debug.Log(String.Join(",", Result) + " > " + Count);
+        Count++;
     }
 
     public void OnApplicationQuit()

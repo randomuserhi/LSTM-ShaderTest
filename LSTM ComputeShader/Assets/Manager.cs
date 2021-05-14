@@ -1,4 +1,5 @@
-﻿using System.Collections;
+﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -58,6 +59,26 @@ public class LSTMManager
         public void SetWeightBiasData()
         {
             _WeightsBiases.SetData(WeightsBiases);
+        }
+        public void DebugData()
+        {
+            _Inputs.GetData(Inputs);
+            _Outputs.GetData(Outputs);
+            _Nodes.GetData(Nodes);
+            _CellStates.GetData(CellStates);
+            _WeightsBiases.GetData(WeightsBiases);
+            _NodeCellInfo.GetData(NodeCellInfo);
+            _WeightBiasInfo.GetData(WeightBiasInfo);
+            _Gates.GetData(Gates);
+
+            Debug.Log("Inputs: " + String.Join(",", Inputs));
+            Debug.Log("Outputs: " + String.Join(",", Outputs));
+            Debug.Log("Nodes: " + String.Join(",", Nodes));
+            Debug.Log("CellStates: " + String.Join(",", CellStates));
+            Debug.Log("WeightsBiases: " + String.Join(",", WeightsBiases));
+            Debug.Log("NodeCellInfo: " + String.Join(",", NodeCellInfo));
+            Debug.Log("WeightBiasInfo: " + String.Join(",", WeightBiasInfo));
+            Debug.Log("Gates: " + String.Join(",", Gates));
         }
     }
 

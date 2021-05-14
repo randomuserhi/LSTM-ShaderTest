@@ -1,5 +1,7 @@
 ﻿#pragma kernel FeedForward
 
+//TODO:: DOCUMENTATION
+
 //Population Data
 int StructureLength;
 int Population;
@@ -41,22 +43,6 @@ RWStructuredBuffer<float> CellStates;
 
 RWStructuredBuffer<float> WeightsBiases;
 
-/*RWStructuredBuffer<float> InputWeights;
-RWStructuredBuffer<float> InputStateWeights;
-RWStructuredBuffer<float> InputBias;
-
-RWStructuredBuffer<float> InputModulationWeights;
-RWStructuredBuffer<float> InputModulationStateWeights;
-RWStructuredBuffer<float> InputModulationBias;
-
-RWStructuredBuffer<float> ForgetWeights;
-RWStructuredBuffer<float> ForgetStateWeights;
-RWStructuredBuffer<float> ForgetBias;
-
-RWStructuredBuffer<float> OutputWeights;
-RWStructuredBuffer<float> OutputStateWeights;
-RWStructuredBuffer<float> OutputBias;*/
-
 RWStructuredBuffer<MatrixInfo> NodeCellInfo; //Shares matrix info for CellState, Bias and Inputs-Nodes-Outputs (MatrixInfo for CellState and Bias is just offset by 1)
 RWStructuredBuffer<MatrixInfo> WeightBiasInfo; //Shares matrix info for Weight-StateWeights, stored 1 after the other (2D array)
 
@@ -81,10 +67,6 @@ RWStructuredBuffer<MatrixInfo> WeightBiasInfo; //Shares matrix info for Weight-S
 int MaxGateSize;
 int TotalGateStride;
 RWStructuredBuffer<float> Gates;
-/*RWStructuredBuffer<float> InputGate;
-RWStructuredBuffer<float> InputModulationGate;
-RWStructuredBuffer<float> ForgetGate;
-RWStructuredBuffer<float> OutputGate;*/
 
 void MatrixMultiplication(RWStructuredBuffer<float> A, RWStructuredBuffer<float> B, RWStructuredBuffer<float> C, MatrixInfo AInfo, MatrixInfo BInfo, MatrixInfo CInfo)
 {
