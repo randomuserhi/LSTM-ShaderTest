@@ -182,6 +182,18 @@ public class LSTMManager
         return Group.Outputs;
     }
 
+    public static float[] FeedForward(float[] Inputs, int Count, LSTMGroup Group, ComputeShader Compute)
+    {
+        for (int i = 0; i < Inputs.Length; i++)
+        {
+            Group.Inputs[i] = Inputs[i];
+        }
+        Group._Inputs.SetData(Group.Inputs);
+        Compute.Dispatch(0, Count, 1, 1);
+        Group._Outputs.GetData(Group.Outputs);
+        return Group.Outputs;
+    }
+
     public static void DisposeGroup(LSTMGroup Group)
     {
         Group._Inputs?.Dispose();

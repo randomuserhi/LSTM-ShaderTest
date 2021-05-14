@@ -12,7 +12,7 @@ public class Main : MonoBehaviour
     public void Start()
     {
         ComputeShader LSTM = LSTMManager.GenerateComputeShader();
-        LSTMGroup = LSTMManager.CreateLSTMGroup(new int[] { 10, 10, 10, 10, 10 }, 1000);
+        LSTMGroup = LSTMManager.CreateLSTMGroup(new int[] { 10, 10, 10, 10, 10 }, 2000);
         LSTMManager.AssignLSTMGroupToShader(LSTMGroup, LSTM);
         LSTMGroup.Initialize();
 
@@ -22,8 +22,8 @@ public class Main : MonoBehaviour
         }
         LSTMGroup.SetWeightBiasData();
 
-        float[] Inputs = new float[2 * 1000];
-        for (int i = 0; i < 2; i++)
+        float[] Inputs = new float[2 * 2000];
+        for (int i = 0; i < 2000; i++)
         {
             Inputs[i] = 1;
         }
