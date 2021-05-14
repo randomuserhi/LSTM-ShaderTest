@@ -9,14 +9,15 @@ public class Main : MonoBehaviour
 {
     LSTMManager.LSTMGroup LSTMGroup;
     ComputeShader LSTM;
-    float[] Inputs = new float[2 * 2];
+    int Population = 1000;
+    float[] Inputs;
 
     public void Start()
     {
         Application.runInBackground = true;
-
+        Inputs = new float[2 * Population];
         LSTM = LSTMManager.GenerateComputeShader();
-        LSTMGroup = LSTMManager.CreateLSTMGroup(new int[] { 2, 2 }, 2);
+        LSTMGroup = LSTMManager.CreateLSTMGroup(new int[] { 2, 2 }, Population);
         LSTMManager.AssignLSTMGroupToShader(LSTMGroup, LSTM);
         LSTMGroup.Initialize();
 
