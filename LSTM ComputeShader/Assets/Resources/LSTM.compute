@@ -148,6 +148,7 @@ void FeedForward(uint3 id : SV_DispatchThreadID)
 {
 	//id.x => which network
 	int PopulationOffset = Population - id.x;
+	int PopulationMinOffset = Population - 1 - id.x;
 
 	//i = 0, j = 1 case for Inputs
 
@@ -272,7 +273,7 @@ void FeedForward(uint3 id : SV_DispatchThreadID)
 
 	NodeOffset = 0;
 	CellStateOffset += CellStateInf.Size * PopulationOffset;
-	WeightBiasOffset += TotalWeightBiasSize * PopulationOffset;
+	WeightBiasOffset += TotalWeightBiasSize * PopulationMinOffset;
 
 	for (int i = 1, j = 2; i < StructureLength - 2; i++, j++)
 	{
@@ -361,7 +362,7 @@ void FeedForward(uint3 id : SV_DispatchThreadID)
 
 		NodeOffset += NodeInf.Size * PopulationOffset;
 		CellStateOffset += CellStateInf.Size * PopulationOffset;
-		WeightBiasOffset += TotalWeightBiasSize * PopulationOffset;
+		WeightBiasOffset += TotalWeightBiasSize * PopulationMinOffset;
 	}
 
 	//i = length - 2, j = length - 1 case for Outputs
