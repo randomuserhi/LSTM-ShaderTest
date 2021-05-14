@@ -15,16 +15,16 @@ public class Main : MonoBehaviour
     public void Start()
     {
         Application.runInBackground = true;
-        Inputs = new float[10 * Population];
+        Inputs = new float[2 * Population];
         LSTM = LSTMManager.GenerateComputeShader();
-        LSTMGroup = LSTMManager.CreateLSTMGroup(new int[] { 10, 10, 10, 10, 10 }, Population);
+        LSTMGroup = LSTMManager.CreateLSTMGroup(new int[] { 2, 10, 10, 10, 2 }, Population);
         LSTMManager.AssignLSTMGroupToShader(LSTMGroup, LSTM);
         LSTMGroup.Initialize();
 
         Debug.Log(LSTMGroup.WeightsBiases.Length);
         for (int i = 0; i < LSTMGroup.WeightsBiases.Length; i++)
         {
-            LSTMGroup.WeightsBiases[i] = 1;
+            LSTMGroup.WeightsBiases[i] = UnityEngine.Random.Range(-1, 1);
         }
         LSTMGroup.SetWeightBiasData();
         

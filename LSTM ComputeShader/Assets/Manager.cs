@@ -26,25 +26,69 @@ public class LSTMManager
         public float[] Inputs;
         public float[] Nodes;
         public float[] Outputs;
-        public ComputeBuffer _Inputs;
-        public ComputeBuffer _Outputs;
-        public ComputeBuffer _Nodes;
+        internal ComputeBuffer _Inputs;
+        internal ComputeBuffer _Outputs;
+        internal ComputeBuffer _Nodes;
 
         public float[] CellStates;
-        public ComputeBuffer _CellStates;
+        internal ComputeBuffer _CellStates;
 
         public float[] WeightsBiases;
-        public ComputeBuffer _WeightsBiases;
+        internal ComputeBuffer _WeightsBiases;
+        internal int WeightsBiasesStride;
 
         public MatrixInfo[] NodeCellInfo;
         public MatrixInfo[] WeightBiasInfo;
         public int MaxGateSize;
-        public ComputeBuffer _NodeCellInfo;
-        public ComputeBuffer _WeightBiasInfo;
+        internal ComputeBuffer _NodeCellInfo;
+        internal ComputeBuffer _WeightBiasInfo;
 
         public float[] Gates;
-        public ComputeBuffer _Gates;
+        internal ComputeBuffer _Gates;
 
+        public void Mutate(int Network)
+        {
+            _WeightsBiases.GetData(WeightsBiases);
+            for (int i = 0, Offset = Network * WeightsBiasesStride; i < WeightsBiasesStride; i++, Offset++)
+            {
+                /*float Chance = (float)R.NextDouble();
+                if (Chance < MutateChance)
+                {
+                    float MutateOption = (float)R.NextDouble();
+                    if (MutateOption < 0.25f)
+                        Weight.Buffer[i] *= -1f;
+                    else if (MutateOption < 0.5f)
+                        Weight.Buffer[i] += 1f;
+                    else if (MutateOption < 0.75f)
+                        Weight.Buffer[i] -= 1f;
+                    else
+                        Weight.Buffer[i] = (float)R.NextDouble() * 2f - 1f;
+                }
+
+                float Variation = ((float)R.NextDouble() * 2f - 1f) * 0.01f;
+                Weight.Buffer[i] += Variation;*/
+            }
+            _WeightsBiases.SetData(WeightsBiases);
+        }
+
+        public void Reset()
+        {
+            for (int i = 0; i < Nodes.Length; i++)
+            {
+                Nodes[i] = 0;
+            }
+            for (int i = 0; i < CellStates.Length; i++)
+            {
+                CellStates[i] = 0;
+            }
+            for (int i = 0; i < Outputs.Length; i++)
+            {
+                Outputs[i] = 0;
+            }
+            _CellStates.SetData(CellStates);
+            _Outputs.SetData(Outputs);
+            _Nodes.SetData(Nodes);
+        }
         public void Initialize()
         {
             _Inputs.SetData(Inputs);
@@ -131,6 +175,7 @@ public class LSTMManager
         }
         int NodeCountNoInputOutput = NodeCount - Structure[Structure.Length - 1];
         NodeCountNoInputOutput *= Population;
+        int WeightsBiasesStride = (WeightCount + StateWeightCount + NodeCount) * 4;
         NodeCount *= Population;
         WeightCount *= Population;
         StateWeightCount *= Population;
@@ -158,6 +203,7 @@ public class LSTMManager
 
             WeightsBiases = new float[TotalWeightBiasCount],
             _WeightsBiases = new ComputeBuffer(TotalWeightBiasCount, sizeof(float)),
+            WeightsBiasesStride = WeightsBiasesStride,
 
             NodeCellInfo = NodeCellInfo,
             WeightBiasInfo = WeightBiasInfo,
