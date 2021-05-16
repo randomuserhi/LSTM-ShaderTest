@@ -16,8 +16,8 @@ public class Main : MonoBehaviour
 
     public GameObject TargetDisplay;
     public static Vector3 TargetPosition = new Vector3(10, 10);
-    public int GenerationTimer = 500;
-    public int MaxTimer = 500;
+    public float GenerationTimer = 5;
+    public float MaxTimer = 5;
 
     public void Start()
     {
@@ -83,7 +83,7 @@ public class Main : MonoBehaviour
             Agents[i].SUpdate();
         }
 
-        GenerationTimer -= 1;
+        GenerationTimer -= Time.fixedDeltaTime;
         if (GenerationTimer < 0)
         {
             GenerationTimer = MaxTimer;

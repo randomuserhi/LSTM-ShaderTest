@@ -164,11 +164,13 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   Agent: {fileID: 2961274250636214038, guid: c50cdefb080be3e4fab04b8b1fad11bf, type: 3}
   TargetDisplay: {fileID: 1030845593}
-  GenerationTimer: 1000
-  MaxTimer: 1000
+  GenerationTimer: 5
+  MaxTimer: 5
   Speed: 0
   MinSpeed: 0
   Dist: 80
+  UpdateRate: 0.02
+  TimeScale: 1
 --- !u!20 &519420031
 Camera:
   m_ObjectHideFlags: 0
