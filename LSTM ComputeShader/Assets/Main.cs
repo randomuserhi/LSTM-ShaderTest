@@ -29,7 +29,7 @@ public class Main : MonoBehaviour
 
         LSTMGroup.Initialize();
 
-        if (System.IO.File.Exists(@"C:\Users\LenovoY720\Documents\LSTMBruh.LSTM"))
+        if (!System.IO.File.Exists(@"C:\Users\LenovoY720\Documents\LSTMBruh.LSTM"))
             for (int i = 0; i < LSTMGroup.WeightsBiases.Length; i++)
             {
                 LSTMGroup.WeightsBiases[i] = UnityEngine.Random.Range(-1f, 1f);
