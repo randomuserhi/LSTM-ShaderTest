@@ -23,8 +23,6 @@ public class Main : MonoBehaviour
     {
         Application.runInBackground = true;
 
-        Physics2D.simulationMode = SimulationMode2D.Script;
-
         LSTMShader = LSTMManager.GenerateComputeShader();
         LSTMGroup = LSTMManager.CreateLSTMGroup(new int[] { 1, 3, 2, 1 }, Population);
         LSTMManager.AssignLSTMGroupToShader(LSTMGroup, LSTMShader);
@@ -60,26 +58,30 @@ public class Main : MonoBehaviour
     public float Speed = 1;
     public float MinSpeed = 1;
     public float Dist = 50;
-    public float UpdateRate = 1f / 60f;
+    public float UpdateRate = 0.02f;
+    public float TimeScale = 1;
+
+    float Timer = 0;
 
     public void FixedUpdate()
     {
-        if (UpdateRate < 1f / 60f) UpdateRate = 1f / 60f;
-        Time.fixedDeltaTime = UpdateRate;
+        TimeScale = Mathf.Clamp(TimeScale, 0.1f, 1);
+        Time.timeScale = TimeScale;
+        Time.fixedDeltaTime = Time.timeScale * UpdateRate;
 
         if (TargetDisplay != null)
             TargetPosition = TargetDisplay.transform.position;
 
-        LSTMManager.FeedForward(LSTMGroup.Inputs, LSTMGroup, LSTMShader);
-
+        Timer += Time.fixedDeltaTime;
+        if (Timer > UpdateRate)
+        {
+            LSTMManager.FeedForward(LSTMGroup.Inputs, LSTMGroup, LSTMShader);
+            Timer = 0;
+        }
         for (int i = 0; i < Agents.Count; i++)
         {
             Agents[i].SUpdate();
         }
-
-        //Debug.Log(LSTMGroup.Outputs[0]);
-
-        Physics2D.Simulate(1f/60f);
 
         GenerationTimer -= 1;
         if (GenerationTimer < 0)

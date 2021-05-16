@@ -93,7 +93,7 @@ public class Agent : MonoBehaviour
         }
         Speed += ResidualSpeed;
 
-        RB.velocity += (Vector2)(transform.rotation * new Vector2(0, Speed)) * Time.deltaTime;
+        RB.velocity += (Vector2)(transform.rotation * new Vector2(0, Speed)) * Time.fixedDeltaTime;
 
         //Steer velocity vector towards body
         Angle = Vector2.SignedAngle(RB.velocity, transform.rotation * Vector2.up) * 0.3f;
