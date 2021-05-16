@@ -62,6 +62,7 @@ public class Main : MonoBehaviour
 
     public void FixedUpdate()
     {
+        if (UpdateRate < 1f / 60f) UpdateRate = 1f / 60f;
         Time.fixedDeltaTime = UpdateRate;
 
         if (TargetDisplay != null)
