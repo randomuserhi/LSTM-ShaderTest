@@ -48,6 +48,8 @@ public class Agent : MonoBehaviour
 
     bool Wait = true;
 
+    float Timer = 0;
+
     // Update is called once per frame
     public void SUpdate()
     {
@@ -83,7 +85,7 @@ public class Agent : MonoBehaviour
         Tail.transform.localRotation = TailRot;
 
         //Rotate body
-        RB.angularVelocity -= Angle * Mathf.Min(RB.velocity.magnitude / 2f, 1);
+        RB.angularVelocity -= Angle * Mathf.Min(RB.velocity.magnitude, 1) * 50 * Time.fixedDeltaTime;
 
         //Accelerate body
         float ChangeInAngle = Math.Abs(Angle - PrevAngle);
@@ -99,9 +101,14 @@ public class Agent : MonoBehaviour
         Angle = Vector2.SignedAngle(RB.velocity, transform.rotation * Vector2.up) * 0.3f;
         Angle *= Mathf.Deg2Rad;
         RB.velocity = new Vector2(Mathf.Cos(Angle) * RB.velocity.x - Mathf.Sin(Angle) * RB.velocity.y, Mathf.Sin(Angle) * RB.velocity.x + Mathf.Cos(Angle) * RB.velocity.y);
-        
-        RB.velocity *= 0.95f;
-        Speed *= 0.95f;
-        RB.angularVelocity *= 0.95f;
+
+        Timer += Time.fixedDeltaTime;
+        if (Timer >= 0.02f)
+        {
+            RB.velocity *= 0.95f;
+            Speed *= 0.95f;
+            RB.angularVelocity *= 0.95f;
+            Timer = 0;
+        }
     }
 }
