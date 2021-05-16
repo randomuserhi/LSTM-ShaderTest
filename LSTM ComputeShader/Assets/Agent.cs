@@ -21,7 +21,7 @@ public class Agent : MonoBehaviour
     }
 
     public float ResidualSpeed = 1;
-    float Speed = 0;
+    public float Speed = 0;
     float PrevAngle = 0;
     public float Fitness;
 

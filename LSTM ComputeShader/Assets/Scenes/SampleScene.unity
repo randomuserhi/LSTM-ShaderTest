@@ -166,8 +166,9 @@ MonoBehaviour:
   TargetDisplay: {fileID: 1030845593}
   GenerationTimer: 1000
   MaxTimer: 1000
-  Speed: 10
-  Dist: 50
+  Speed: 1
+  MinSpeed: 1
+  Dist: 80
 --- !u!20 &519420031
 Camera:
   m_ObjectHideFlags: 0
@@ -195,7 +196,7 @@ Camera:
   far clip plane: 1000
   field of view: 60
   orthographic: 1
-  orthographic size: 40
+  orthographic size: 80
   m_Depth: -1
   m_CullingMask:
     serializedVersion: 2

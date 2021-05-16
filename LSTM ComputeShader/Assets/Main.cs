@@ -49,6 +49,7 @@ public class Main : MonoBehaviour
     }
 
     public float Speed = 1;
+    public float MinSpeed = 1;
     public float Dist = 50;
 
     public void FixedUpdate()
@@ -77,6 +78,15 @@ public class Main : MonoBehaviour
             Debug.Log(Agents[0].Fitness + ", " + Agents[Agents.Count - 1].Fitness + " > " + Avg);
 
             Speed = Mathf.Min(Avg / 80f, 1);
+            if (Speed > MinSpeed)
+            {
+                Speed = MinSpeed;
+                MinSpeed += 0.1f;
+            }
+            else
+            {
+                MinSpeed = Speed;
+            }
 
             for (int i = Agents.Count / 4; i < Agents.Count; i++)
             {
@@ -86,6 +96,8 @@ public class Main : MonoBehaviour
                 Agents[i].Tail.transform.rotation = Agents[A].transform.rotation;
                 Agents[i].Copy(Agents[A]);
                 Agents[i].ResidualSpeed = Speed;
+                Agents[i].Speed = 0;
+                Agents[i].RB.velocity = Vector2.zero;
 
                 LSTMGroup.Copy(Agents[A].Network, Agents[i].Network);
                 LSTMGroup.Mutate(Agents[i].Network);
@@ -94,6 +106,8 @@ public class Main : MonoBehaviour
             for (int i = 0; i < Agents.Count / 4; i++)
             {
                 Agents[i].ResidualSpeed = Speed;
+                Agents[i].Speed = 0;
+                Agents[i].RB.velocity = Vector2.zero;
             }
 
             Quaternion R = new Quaternion();
