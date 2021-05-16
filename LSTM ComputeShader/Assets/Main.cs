@@ -23,6 +23,8 @@ public class Main : MonoBehaviour
     {
         Application.runInBackground = true;
 
+        Physics2D.simulationMode = SimulationMode2D.Script;
+
         LSTMShader = LSTMManager.GenerateComputeShader();
         LSTMGroup = LSTMManager.CreateLSTMGroup(new int[] { 1, 3, 2, 1 }, Population);
         LSTMManager.AssignLSTMGroupToShader(LSTMGroup, LSTMShader);
@@ -76,6 +78,8 @@ public class Main : MonoBehaviour
         }
 
         //Debug.Log(LSTMGroup.Outputs[0]);
+
+        Physics2D.Simulate(1f/60f);
 
         GenerationTimer -= 1;
         if (GenerationTimer < 0)
