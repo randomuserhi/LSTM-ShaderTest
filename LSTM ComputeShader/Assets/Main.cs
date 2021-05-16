@@ -58,9 +58,12 @@ public class Main : MonoBehaviour
     public float Speed = 1;
     public float MinSpeed = 1;
     public float Dist = 50;
+    public float UpdateRate = 1f / 60f;
 
     public void FixedUpdate()
     {
+        Time.fixedDeltaTime = UpdateRate;
+
         if (TargetDisplay != null)
             TargetPosition = TargetDisplay.transform.position;
 

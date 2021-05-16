@@ -166,8 +166,8 @@ MonoBehaviour:
   TargetDisplay: {fileID: 1030845593}
   GenerationTimer: 1000
   MaxTimer: 1000
-  Speed: 1
-  MinSpeed: 1
+  Speed: 0
+  MinSpeed: 0
   Dist: 80
 --- !u!20 &519420031
 Camera:
