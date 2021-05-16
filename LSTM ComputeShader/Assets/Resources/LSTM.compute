@@ -205,6 +205,7 @@ void FeedForward(uint3 id : SV_DispatchThreadID)
 	WeightBiasOffset += BiasSize; OutputWeightInf.Offset = WeightBiasOffset;
 	WeightBiasOffset += WeightSize; OutputWeightStateInf.Offset = WeightBiasOffset;
 	WeightBiasOffset += WeightStateSize; OutputBiasInf.Offset = WeightBiasOffset;
+	WeightBiasOffset += BiasSize;
 
 	if (StructureLength == 2)
 	{
@@ -273,7 +274,7 @@ void FeedForward(uint3 id : SV_DispatchThreadID)
 
 	NodeOffset = 0;
 	CellStateOffset += CellStateInf.Size * PopulationOffset;
-	WeightBiasOffset += TotalWeightBiasSize * PopulationMinOffset;
+	WeightBiasOffset += TotalWeightBiasOffset * PopulationMinOffset;
 
 	for (int i = 1, j = 2; i < StructureLength - 2; i++, j++)
 	{
@@ -330,6 +331,7 @@ void FeedForward(uint3 id : SV_DispatchThreadID)
 		WeightBiasOffset += BiasSize; OutputWeightInf.Offset = WeightBiasOffset;
 		WeightBiasOffset += WeightSize; OutputWeightStateInf.Offset = WeightBiasOffset;
 		WeightBiasOffset += WeightStateSize; OutputBiasInf.Offset = WeightBiasOffset;
+		WeightBiasOffset += BiasSize;
 
 		MatrixMultiplication(Nodes, WeightsBiases, Gates, NodeInf, InputWeightInf, InputGateInf);
 		MatrixMultiplicationNoReset(Nodes, WeightsBiases, Gates, CellStateInf, InputWeightStateInf, InputGateInf);
@@ -362,7 +364,7 @@ void FeedForward(uint3 id : SV_DispatchThreadID)
 
 		NodeOffset += NodeInf.Size * PopulationOffset;
 		CellStateOffset += CellStateInf.Size * PopulationOffset;
-		WeightBiasOffset += TotalWeightBiasSize * PopulationMinOffset;
+		WeightBiasOffset += TotalWeightBiasOffset * PopulationMinOffset;
 	}
 
 	//i = length - 2, j = length - 1 case for Outputs
@@ -422,6 +424,7 @@ void FeedForward(uint3 id : SV_DispatchThreadID)
 	WeightBiasOffset += BiasSize; OutputWeightInf.Offset = WeightBiasOffset;
 	WeightBiasOffset += WeightSize; OutputWeightStateInf.Offset = WeightBiasOffset;
 	WeightBiasOffset += WeightStateSize; OutputBiasInf.Offset = WeightBiasOffset;
+	WeightBiasOffset += BiasSize;
 
 	MatrixMultiplication(Nodes, WeightsBiases, Gates, NodeInf, InputWeightInf, InputGateInf);
 	MatrixMultiplicationNoReset(Outputs, WeightsBiases, Gates, OutputInf, InputWeightStateInf, InputGateInf);

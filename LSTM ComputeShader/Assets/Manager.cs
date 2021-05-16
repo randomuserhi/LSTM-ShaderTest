@@ -23,6 +23,9 @@ public class LSTMManager
         public int Population;
         public int[] Structure;
 
+        public int NumInputs;
+        public int NumOutputs;
+
         public float[] Inputs;
         public float[] Nodes;
         public float[] Outputs;
@@ -35,7 +38,6 @@ public class LSTMManager
 
         public float[] WeightsBiases;
         internal ComputeBuffer _WeightsBiases;
-        internal int WeightsBiasesStride;
 
         public MatrixInfo[] NodeCellInfo;
         public MatrixInfo[] WeightBiasInfo;
@@ -46,33 +48,226 @@ public class LSTMManager
         public float[] Gates;
         internal ComputeBuffer _Gates;
 
+        public int GetOutputOffset(int Network)
+        {
+            return Network * NumOutputs;
+        }
+
+        public int GetInputOffset(int Network)
+        {
+            return Network * NumInputs;
+        }
+
+        private void _Mutate(ref int Offset, int WeightSize, int WeightStateSize, int BiasSize)
+        {
+            const float Chance = 0.1f;
+            for (int z = 0; z < 4; z++)
+            {
+                for (int j = 0; j < WeightSize; j++, Offset++)
+                {
+                    float MutationChance = UnityEngine.Random.Range(0f, 1f);
+                    if (MutationChance < Chance)
+                    {
+                        float MutationOption = UnityEngine.Random.Range(0f, 1f);
+                        if (MutationOption < 0.25f) WeightsBiases[Offset] *= -1f;
+                        else if (MutationOption < 0.5f) WeightsBiases[Offset] += UnityEngine.Random.Range(0f, 1f);
+                        else if (MutationOption < 0.75f) WeightsBiases[Offset] -= UnityEngine.Random.Range(0f, 1f);
+                        else WeightsBiases[Offset] = UnityEngine.Random.Range(-1f, 1f);
+                    }
+
+                    WeightsBiases[Offset] += UnityEngine.Random.Range(-0.01f, 0.01f);
+                }
+                for (int j = 0; j < WeightStateSize; j++, Offset++)
+                {
+                    float MutationChance = UnityEngine.Random.Range(0f, 1f);
+                    if (MutationChance < Chance)
+                    {
+                        float MutationOption = UnityEngine.Random.Range(0f, 1f);
+                        if (MutationOption < 0.25f) WeightsBiases[Offset] *= -1f;
+                        else if (MutationOption < 0.5f) WeightsBiases[Offset] += UnityEngine.Random.Range(0f, 1f);
+                        else if (MutationOption < 0.75f) WeightsBiases[Offset] -= UnityEngine.Random.Range(0f, 1f);
+                        else WeightsBiases[Offset] = UnityEngine.Random.Range(-1f, 1f);
+                    }
+
+                    WeightsBiases[Offset] += UnityEngine.Random.Range(-0.01f, 0.01f);
+                }
+                for (int j = 0; j < BiasSize; j++, Offset++)
+                {
+                    float MutationChance = UnityEngine.Random.Range(0f, 1f);
+                    if (MutationChance < Chance)
+                    {
+                        float MutationOption = UnityEngine.Random.Range(0f, 1f);
+                        if (MutationOption < 0.25f) WeightsBiases[Offset] *= -1f;
+                        else if (MutationOption < 0.5f) WeightsBiases[Offset] += UnityEngine.Random.Range(0f, 1f);
+                        else if (MutationOption < 0.75f) WeightsBiases[Offset] -= UnityEngine.Random.Range(0f, 1f);
+                        else WeightsBiases[Offset] = UnityEngine.Random.Range(-1f, 1f);
+                    }
+
+                    WeightsBiases[Offset] += UnityEngine.Random.Range(-0.01f, 0.01f);
+                }
+            }
+        }
         public void Mutate(int Network)
         {
+            int PopulationOffset = Population - 1 - Network;
             _WeightsBiases.GetData(WeightsBiases);
-            for (int i = 0, Offset = Network * WeightsBiasesStride; i < WeightsBiasesStride; i++, Offset++)
-            {
-                /*float Chance = (float)R.NextDouble();
-                if (Chance < MutateChance)
-                {
-                    float MutateOption = (float)R.NextDouble();
-                    if (MutateOption < 0.25f)
-                        Weight.Buffer[i] *= -1f;
-                    else if (MutateOption < 0.5f)
-                        Weight.Buffer[i] += 1f;
-                    else if (MutateOption < 0.75f)
-                        Weight.Buffer[i] -= 1f;
-                    else
-                        Weight.Buffer[i] = (float)R.NextDouble() * 2f - 1f;
-                }
 
-                float Variation = ((float)R.NextDouble() * 2f - 1f) * 0.01f;
-                Weight.Buffer[i] += Variation;*/
+            int WeightSize = WeightBiasInfo[0].Size;
+            int WeightStateSize = WeightBiasInfo[1].Size;
+            int BiasSize = NodeCellInfo[1].Size;
+            int StrideSize = (WeightSize + WeightStateSize + BiasSize) * 4;
+            int Offset = Network * StrideSize;
+
+            _Mutate(ref Offset, WeightSize, WeightStateSize, BiasSize);
+
+            Offset += StrideSize * PopulationOffset;
+
+            for (int i = 1, k = 2; i < Structure.Length - 1; i++, k++)
+            {
+                WeightSize = WeightBiasInfo[i * 2].Size;
+                WeightStateSize = WeightBiasInfo[i * 2 + 1].Size;
+                BiasSize = NodeCellInfo[k].Size;
+                StrideSize = (WeightSize + WeightStateSize + BiasSize) * 4;
+                Offset += Network * StrideSize;
+
+                _Mutate(ref Offset, WeightSize, WeightStateSize, BiasSize);
+
+                Offset += StrideSize * PopulationOffset;
             }
+
+            _WeightsBiases.SetData(WeightsBiases);
+        }
+        private void _Merge(ref int AOffset, ref int BOffset, ref int COffset, int WeightSize, int WeightStateSize, int BiasSize)
+        {
+            for (int z = 0; z < 4; z++)
+            {
+                for (int j = 0; j < WeightSize; j++, AOffset++, BOffset++, COffset++)
+                {
+                    float Chance = UnityEngine.Random.Range(0f, 1f);
+                    if (Chance < 0.5f)
+                        WeightsBiases[COffset] = WeightsBiases[AOffset];
+                    else
+                        WeightsBiases[COffset] = WeightsBiases[BOffset];
+                }
+                for (int j = 0; j < WeightStateSize; j++, AOffset++, BOffset++, COffset++)
+                {
+                    float Chance = UnityEngine.Random.Range(0f, 1f);
+                    if (Chance < 0.5f)
+                        WeightsBiases[COffset] = WeightsBiases[AOffset];
+                    else
+                        WeightsBiases[COffset] = WeightsBiases[BOffset];
+                }
+                for (int j = 0; j < BiasSize; j++, AOffset++, BOffset++, COffset++)
+                {
+                    float Chance = UnityEngine.Random.Range(0f, 1f);
+                    if (Chance < 0.5f)
+                        WeightsBiases[COffset] = WeightsBiases[AOffset];
+                    else
+                        WeightsBiases[COffset] = WeightsBiases[BOffset];
+                }
+            }
+        }
+        public void Merge(int NetworkA, int NetworkB, int NetworkC)
+        {
+            int PopulationOffsetA = Population - 1 - NetworkA;
+            int PopulationOffsetB = Population - 1 - NetworkB;
+            int PopulationOffsetC = Population - 1 - NetworkC;
+            _WeightsBiases.GetData(WeightsBiases);
+
+            int WeightSize = WeightBiasInfo[0].Size;
+            int WeightStateSize = WeightBiasInfo[1].Size;
+            int BiasSize = NodeCellInfo[1].Size;
+            int StrideSize = (WeightSize + WeightStateSize + BiasSize) * 4;
+            int AOffset = NetworkA * StrideSize;
+            int BOffset = NetworkB * StrideSize;
+            int COffset = NetworkC * StrideSize;
+
+            _Merge(ref AOffset, ref BOffset, ref COffset, WeightSize, WeightStateSize, BiasSize);
+
+            AOffset += StrideSize * PopulationOffsetA;
+            BOffset += StrideSize * PopulationOffsetB;
+            COffset += StrideSize * PopulationOffsetC;
+
+            for (int i = 1, k = 2; i < Structure.Length - 1; i++, k++)
+            {
+                WeightSize = WeightBiasInfo[i * 2].Size;
+                WeightStateSize = WeightBiasInfo[i * 2 + 1].Size;
+                BiasSize = NodeCellInfo[k].Size;
+                StrideSize = (WeightSize + WeightStateSize + BiasSize) * 4;
+                AOffset += NetworkA * StrideSize;
+                BOffset += NetworkB * StrideSize;
+                COffset += NetworkC * StrideSize;
+
+                _Merge(ref AOffset, ref BOffset, ref COffset, WeightSize, WeightStateSize, BiasSize);
+
+                AOffset += StrideSize * PopulationOffsetA;
+                BOffset += StrideSize * PopulationOffsetB;
+                COffset += StrideSize * PopulationOffsetC;
+            }
+
+            _WeightsBiases.SetData(WeightsBiases);
+        }
+
+        private void _Copy(ref int AOffset, ref int BOffset, int WeightSize, int WeightStateSize, int BiasSize)
+        {
+            for (int z = 0; z < 4; z++)
+            {
+                for (int j = 0; j < WeightSize; j++, AOffset++, BOffset++)
+                {
+                    WeightsBiases[BOffset] = WeightsBiases[AOffset];
+                }
+                for (int j = 0; j < WeightStateSize; j++, AOffset++, BOffset++)
+                {
+                    WeightsBiases[BOffset] = WeightsBiases[AOffset];
+                }
+                for (int j = 0; j < BiasSize; j++, AOffset++, BOffset++)
+                {
+                    WeightsBiases[BOffset] = WeightsBiases[AOffset];
+                }
+            }
+        }
+        public void Copy(int NetworkA, int NetworkB)
+        {
+            int PopulationOffsetA = Population - 1 - NetworkA;
+            int PopulationOffsetB = Population - 1 - NetworkB;
+            _WeightsBiases.GetData(WeightsBiases);
+
+            int WeightSize = WeightBiasInfo[0].Size;
+            int WeightStateSize = WeightBiasInfo[1].Size;
+            int BiasSize = NodeCellInfo[1].Size;
+            int StrideSize = (WeightSize + WeightStateSize + BiasSize) * 4;
+            int AOffset = NetworkA * StrideSize;
+            int BOffset = NetworkB * StrideSize;
+
+            _Copy(ref AOffset, ref BOffset, WeightSize, WeightStateSize, BiasSize);
+
+            AOffset += StrideSize * PopulationOffsetA;
+            BOffset += StrideSize * PopulationOffsetB;
+
+            for (int i = 1, k = 2; i < Structure.Length - 1; i++, k++)
+            {
+                WeightSize = WeightBiasInfo[i * 2].Size;
+                WeightStateSize = WeightBiasInfo[i * 2 + 1].Size;
+                BiasSize = NodeCellInfo[k].Size;
+                StrideSize = (WeightSize + WeightStateSize + BiasSize) * 4;
+                AOffset += NetworkA * StrideSize;
+                BOffset += NetworkB * StrideSize;
+
+                _Copy(ref AOffset, ref BOffset, WeightSize, WeightStateSize, BiasSize);
+
+                AOffset += StrideSize * PopulationOffsetA;
+                BOffset += StrideSize * PopulationOffsetB;
+            }
+
             _WeightsBiases.SetData(WeightsBiases);
         }
 
         public void Reset()
         {
+            for (int i = 0; i < Inputs.Length; i++)
+            {
+                Inputs[i] = 0;
+            }
             for (int i = 0; i < Nodes.Length; i++)
             {
                 Nodes[i] = 0;
@@ -85,6 +280,7 @@ public class LSTMManager
             {
                 Outputs[i] = 0;
             }
+            _Inputs.SetData(Inputs);
             _CellStates.SetData(CellStates);
             _Outputs.SetData(Outputs);
             _Nodes.SetData(Nodes);
@@ -133,7 +329,7 @@ public class LSTMManager
         int StateWeightCount = 0;
         MatrixInfo[] NodeCellInfo = new MatrixInfo[Structure.Length];
         MatrixInfo[] WeightBiasInfo = new MatrixInfo[2 * (Structure.Length - 1)];
-        int MaxGateSize = Structure[0];
+        int MaxGateSize = Structure[1];
 
         NodeCellInfo[0] = new MatrixInfo()
         {
@@ -144,9 +340,9 @@ public class LSTMManager
         };
         for (int i = 1, j = 0; i < Structure.Length; i++, j++)
         {
-            WeightCount += Structure[j] * Structure[i];
-            StateWeightCount += Structure[i] * Structure[i];
-            NodeCount += Structure[i];
+            WeightCount += Structure[j] * Structure[i] * 4;
+            StateWeightCount += Structure[i] * Structure[i] * 4;
+            NodeCount += Structure[i] * 4;
 
             NodeCellInfo[i] = new MatrixInfo()
             {
@@ -175,12 +371,11 @@ public class LSTMManager
         }
         int NodeCountNoInputOutput = NodeCount - Structure[Structure.Length - 1];
         NodeCountNoInputOutput *= Population;
-        int WeightsBiasesStride = (WeightCount + StateWeightCount + NodeCount) * 4;
         NodeCount *= Population;
         WeightCount *= Population;
         StateWeightCount *= Population;
         int GateSize = MaxGateSize * Population;
-        int TotalWeightBiasCount = (WeightCount + StateWeightCount + NodeCount) * 4;
+        int TotalWeightBiasCount = WeightCount + StateWeightCount + NodeCount;
         int TotalGateSize = GateSize * 4;
 
         int InputSize = Structure[0] * Population;
@@ -190,6 +385,9 @@ public class LSTMManager
         {
             Population = Population,
             Structure = Structure,
+
+            NumInputs = Structure[0],
+            NumOutputs = Structure[Structure.Length - 1],
 
             Inputs = new float[InputSize],
             Nodes = new float[NodeCountNoInputOutput],
@@ -203,7 +401,6 @@ public class LSTMManager
 
             WeightsBiases = new float[TotalWeightBiasCount],
             _WeightsBiases = new ComputeBuffer(TotalWeightBiasCount, sizeof(float)),
-            WeightsBiasesStride = WeightsBiasesStride,
 
             NodeCellInfo = NodeCellInfo,
             WeightBiasInfo = WeightBiasInfo,
@@ -239,10 +436,11 @@ public class LSTMManager
 
     public static float[] FeedForward(float[] Inputs, LSTMGroup Group, ComputeShader Compute)
     {
-        for (int i = 0; i < Inputs.Length; i++)
-        {
-            Group.Inputs[i] = Inputs[i];
-        }
+        if (Inputs != Group.Inputs)
+            for (int i = 0; i < Inputs.Length; i++)
+            {
+                Group.Inputs[i] = Inputs[i];
+            }
         Group._Inputs.SetData(Group.Inputs);
         Compute.Dispatch(0, Group.Population, 1, 1);
         Group._Outputs.GetData(Group.Outputs);
