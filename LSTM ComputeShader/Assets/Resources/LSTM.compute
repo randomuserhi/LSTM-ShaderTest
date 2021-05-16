@@ -1,6 +1,6 @@
 ﻿#pragma kernel FeedForward
 
-//TODO:: DOCUMENTATION
+//TODO:: DOCUMENTATION ==> Refactor memory format as it isnt exactly the best
 
 //Population Data
 int StructureLength;

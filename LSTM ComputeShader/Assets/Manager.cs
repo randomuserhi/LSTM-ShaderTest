@@ -2,6 +2,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using System.IO;
 
 public class LSTMManager
 {
@@ -56,6 +57,19 @@ public class LSTMManager
         public int GetInputOffset(int Network)
         {
             return Network * NumInputs;
+        }
+
+        public void LoadFullGroup(string FilePath)
+        {
+            byte[] Data = File.ReadAllBytes(FilePath);
+            Buffer.BlockCopy(Data, 0, WeightsBiases, 0, Data.Length);
+        }
+
+        public void SaveFullGroup(string FilePath)
+        {
+            byte[] Data = new byte[WeightsBiases.Length * sizeof(float)];
+            Buffer.BlockCopy(WeightsBiases, 0, Data, 0, WeightsBiases.Length * sizeof(float));
+            File.WriteAllBytes(FilePath + ".LSTM", Data);
         }
 
         private void _Mutate(ref int Offset, int WeightSize, int WeightStateSize, int BiasSize)

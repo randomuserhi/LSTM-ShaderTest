@@ -29,10 +29,17 @@ public class Main : MonoBehaviour
 
         LSTMGroup.Initialize();
 
-        for (int i = 0; i < LSTMGroup.WeightsBiases.Length; i++)
+        if (System.IO.File.Exists(@"C:\Users\LenovoY720\Documents\LSTMBruh.LSTM"))
+            for (int i = 0; i < LSTMGroup.WeightsBiases.Length; i++)
+            {
+                LSTMGroup.WeightsBiases[i] = UnityEngine.Random.Range(-1f, 1f);
+            }
+        else
         {
-            LSTMGroup.WeightsBiases[i] = UnityEngine.Random.Range(-1f, 1f);
+            Debug.Log("Loading Old File");
+            LSTMGroup.LoadFullGroup(@"C:\Users\LenovoY720\Documents\LSTMBruh.LSTM");
         }
+
         LSTMGroup.SetWeightBiasData();
 
         for (int i = 0; i < Population; i++)
@@ -126,5 +133,7 @@ public class Main : MonoBehaviour
     {
         Debug.Log("Disposing");
         LSTMManager.DisposeGroup(LSTMGroup);
+        Debug.Log("Saving");
+        LSTMGroup.SaveFullGroup(@"C:\Users\LenovoY720\Documents\LSTMBruh");
     }
 }
